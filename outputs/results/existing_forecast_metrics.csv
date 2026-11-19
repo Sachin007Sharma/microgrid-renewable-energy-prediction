@@ -1,0 +1,4 @@
+Variable,MAE (MWh),RMSE (MWh),MAPE (%),Bias (MWh),R²,Bias Direction
+Solar,1649.2,2300.3,6.425,-149.9,0.9813,Over-forecast
+Wind,2198.7,4852.6,2.058,-150.1,0.9951,Over-forecast
+Demand,5662.9,7447.1,0.827,-332.4,0.9872,Over-forecast
