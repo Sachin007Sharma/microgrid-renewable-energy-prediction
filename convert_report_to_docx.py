@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 convert_report_to_docx.py
-Converts Markdown report to a beautifully styled Microsoft Word (.docx) document.
+Converts Markdown report to an elegantly styled Microsoft Word (.docx) document.
 Built using pure Python standard library (zipfile, xml.sax.saxutils).
 Outputs: report/final_report.docx
 """
@@ -68,6 +68,12 @@ FONT_TABLE = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:family w:val="modern"/>
     <w:pitch w:val="fixed"/>
   </w:font>
+  <w:font w:name="Cambria Math">
+    <w:panose1 w:val="02040503050406030204"/>
+    <w:charset w:val="00"/>
+    <w:family w:val="roman"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
 </w:fontTable>'''
 
 STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -104,7 +110,7 @@ STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:rPr>
       <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
       <w:b/>
-      <w:sz w:val="48"/>
+      <w:sz w:val="46"/>
       <w:color w:val="1B365D"/>
     </w:rPr>
   </w:style>
@@ -134,7 +140,7 @@ STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:rPr>
       <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
       <w:b/>
-      <w:sz w:val="32"/>
+      <w:sz w:val="30"/>
       <w:color w:val="1B365D"/>
     </w:rPr>
   </w:style>
@@ -149,7 +155,7 @@ STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:rPr>
       <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
       <w:b/>
-      <w:sz w:val="26"/>
+      <w:sz w:val="25"/>
       <w:color w:val="2B6CB0"/>
     </w:rPr>
   </w:style>
@@ -165,21 +171,39 @@ STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
       <w:b/>
       <w:i/>
-      <w:sz w:val="23"/>
+      <w:sz w:val="22"/>
       <w:color w:val="2D3748"/>
     </w:rPr>
   </w:style>
 </w:styles>'''
 
 
+def clean_math_and_code(text):
+    """
+    Sanitizes any LaTeX fragments or escaping so variables look like clean words.
+    e.g. \\text{doy\\_cos1} -> doy_cos1
+    """
+    text = re.sub(r'\\text\{([^}]+)\}', r'\1', text)
+    text = re.sub(r'\\mathbf\{([^}]+)\}', r'\1', text)
+    text = re.sub(r'\\math[a-zA-Z]+\{([^}]+)\}', r'\1', text)
+    text = text.replace(r'\_', '_')
+    text = text.replace(r'\le', '≤').replace(r'\ge', '≥').replace(r'\approx', '≈')
+    text = text.replace(r'\times', '×').replace(r'\pm', '±').replace(r'\sigma', 'σ')
+    text = text.replace(r'\alpha', 'α').replace(r'\beta', 'β').replace(r'\gamma', 'γ')
+    text = text.replace(r'\phi', 'φ').replace(r'\theta', 'θ').replace(r'\epsilon', 'ε')
+    text = text.replace(r'\lambda', 'λ').replace(r'\cdot', '·').replace(r'\odot', '⊙')
+    text = text.replace('$', '')
+    return text
+
+
 def format_runs(text):
     """
-    Parses inline markdown like **bold**, *italic*, `code`, and plain text.
+    Parses inline markdown like **bold**, *italic*, `code`, and clean plain text.
     Returns OpenXML <w:r> elements.
     """
+    text = clean_math_and_code(text)
     runs_xml = []
-    # Tokenize by bold, italic, code, or math
-    pattern = re.compile(r'(\*\*[^*]+?\*\*|\*[^*]+?\*|`[^`]+?`|\$[^\$]+?\$|[^\*`\$]+)')
+    pattern = re.compile(r'(\*\*[^*]+?\*\*|\*[^*]+?\*|`[^`]+?`|[^\*`]+)')
     tokens = pattern.findall(text)
     if not tokens:
         tokens = [text]
@@ -199,19 +223,16 @@ def format_runs(text):
             is_italic = True
             inner = tok[1:-1]
         elif tok.startswith("`") and tok.endswith("`") and len(tok) >= 2:
+            # Inline variable or code: format cleanly in bold or subtle font
+            inner = tok[1:-1]
             is_code = True
-            inner = tok[1:-1]
-        elif tok.startswith("$") and tok.endswith("$") and len(tok) >= 2:
-            # Inline math: format in clean italic Serif font
-            is_italic = True
-            inner = tok[1:-1]
 
         rpr_parts = []
         if is_code:
-            rpr_parts.append('<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/>')
-            rpr_parts.append('<w:sz w:val="19"/>')
-            rpr_parts.append('<w:color w:val="9B2C2C"/>')
-            rpr_parts.append('<w:shd w:val="clear" w:color="auto" w:fill="EDF2F7"/>')
+            rpr_parts.append('<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>')
+            rpr_parts.append('<w:b/>')
+            rpr_parts.append('<w:sz w:val="21"/>')
+            rpr_parts.append('<w:color w:val="1B365D"/>')
         else:
             if is_bold:
                 rpr_parts.append('<w:b/>')
@@ -257,7 +278,6 @@ def make_table(rows):
         return ""
 
     num_cols = max(len(r) for r in rows)
-    # 9360 twips = 6.5 inches printable width
     col_w = int(9360 / num_cols)
 
     tbl_xml = ['<w:tbl>']
@@ -280,7 +300,6 @@ def make_table(rows):
       </w:tblCellMar>
     </w:tblPr>''')
 
-    # Grid
     tbl_xml.append('<w:tblGrid>')
     for _ in range(num_cols):
         tbl_xml.append(f'<w:gridCol w:w="{col_w}"/>')
@@ -302,10 +321,9 @@ def make_table(rows):
             tc_parts.append(f'<w:tcW w:w="{col_w}" w:type="dxa"/>')
             tc_parts.append(f'<w:shd w:val="clear" w:color="auto" w:fill="{bg_color}"/>')
 
-            # cell paragraph
             p_align = "center" if (is_header or cell_idx > 1) else "left"
             if is_header:
-                formatted_p = f'<w:p><w:pPr><w:jc w:val="{p_align}"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="{txt_color}"/></w:rPr><w:t>{escape(cell_text)}</w:t></w:r></w:p>'
+                formatted_p = f'<w:p><w:pPr><w:jc w:val="{p_align}"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="{txt_color}"/></w:rPr><w:t>{escape(clean_math_and_code(cell_text))}</w:t></w:r></w:p>'
             else:
                 formatted_runs = format_runs(cell_text)
                 formatted_p = f'<w:p><w:pPr><w:jc w:val="{p_align}"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>{formatted_runs}</w:p>'
@@ -315,13 +333,44 @@ def make_table(rows):
         tbl_xml.append('</w:tr>')
 
     tbl_xml.append('</w:tbl>')
-    # Spacing after table
     tbl_xml.append('<w:p><w:pPr><w:spacing w:after="140"/></w:pPr></w:p>')
     return "".join(tbl_xml)
 
 
-def make_code_block(code_lines):
-    """Renders formatted monospace box for ASCII art or code listings."""
+def make_equation_block(lines):
+    """
+    Renders mathematical formulas in clean, centered academic presentation style.
+    No code background or programming borders.
+    """
+    xml_parts = []
+    for line in lines:
+        cleaned = clean_math_and_code(line.strip())
+        if not cleaned:
+            continue
+        escaped_line = escape(cleaned)
+        xml_parts.append('<w:p><w:pPr>')
+        xml_parts.append('<w:jc w:val="center"/>')
+        xml_parts.append('<w:spacing w:before="60" w:after="60" w:line="260" w:lineRule="auto"/>')
+        xml_parts.append('</w:pPr>')
+        xml_parts.append(f'<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:i/><w:sz w:val="23"/><w:color w:val="1A365D"/></w:rPr><w:t xml:space="preserve">{escaped_line}</w:t></w:r>')
+        xml_parts.append('</w:p>')
+
+    # add small spacing after
+    xml_parts.append('<w:p><w:pPr><w:spacing w:after="80"/></w:pPr></w:p>')
+    return "".join(xml_parts)
+
+
+def make_code_block(code_lines, lang=""):
+    """
+    Renders Python code or ASCII diagram.
+    """
+    # Check if lines look like mathematical equations rather than programming code
+    math_signals = ["ŷ(t", "RMSE =", "MAE =", "MAPE =", "R² =", "Level:", "Trend:", "Gate:", "Loss =", "doy_sin", "σ("]
+    is_math = any(any(sig in line for sig in math_signals) for line in code_lines) and (lang != "python")
+
+    if is_math:
+        return make_equation_block(code_lines)
+
     xml_parts = []
     xml_parts.append('<w:p><w:pPr>')
     xml_parts.append('<w:pBdr><w:top w:val="single" w:sz="4" w:space="4" w:color="CBD5E1"/><w:left w:val="single" w:sz="18" w:space="8" w:color="2B6CB0"/><w:bottom w:val="single" w:sz="4" w:space="4" w:color="CBD5E1"/><w:right w:val="single" w:sz="4" w:space="4" w:color="CBD5E1"/></w:pBdr>')
@@ -348,6 +397,7 @@ def parse_markdown_to_docx(md_path, docx_path):
 
     body_xml = []
     in_code_block = False
+    code_lang = ""
     code_lines = []
     in_table = False
     table_rows = []
@@ -360,14 +410,16 @@ def parse_markdown_to_docx(md_path, docx_path):
         if line.startswith("```"):
             if in_code_block:
                 in_code_block = False
-                body_xml.append(make_code_block(code_lines))
+                body_xml.append(make_code_block(code_lines, code_lang))
                 code_lines = []
+                code_lang = ""
             else:
                 if in_table:
                     body_xml.append(make_table(table_rows))
                     table_rows = []
                     in_table = False
                 in_code_block = True
+                code_lang = line[3:].strip().lower()
                 code_lines = []
             i += 1
             continue
@@ -434,7 +486,7 @@ def parse_markdown_to_docx(md_path, docx_path):
     if in_table:
         body_xml.append(make_table(table_rows))
     if in_code_block:
-        body_xml.append(make_code_block(code_lines))
+        body_xml.append(make_code_block(code_lines, code_lang))
 
     # Section properties: Standard Letter / A4 with 1-inch margins (1440 twips)
     body_xml.append('''<w:sectPr>
@@ -470,4 +522,3 @@ def parse_markdown_to_docx(md_path, docx_path):
 
 if __name__ == "__main__":
     parse_markdown_to_docx(MD_PATH, DOCX_PATH)
-
